@@ -80,8 +80,24 @@ func NewSLSAParser() common.DocumentParser {
 	}
 }
 
+// initializeSLSAParser clears out all values for the next iteration
+func (s *slsaParser) initializeSLSAParser() {
+	s.pred01 = nil
+	s.pred02 = nil
+	s.pred1 = nil
+	s.smt = nil
+	s.subjects = make([]*slsaEntity, 0)
+	s.materials = make([]*slsaEntity, 0)
+	s.bareMaterials = make([]*model.ArtifactInputSpec, 0)
+	s.bareMaterials = make([]*model.ArtifactInputSpec, 0)
+	s.builder = nil
+	s.slsaAttestation = nil
+	s.identifierStrings = &common.IdentifierStrings{}
+}
+
 // Parse breaks out the document into the graph components
 func (s *slsaParser) Parse(ctx context.Context, doc *processor.Document) error {
+	s.initializeSLSAParser()
 	if err := s.parseSlsaPredicate(doc.Blob); err != nil {
 		return err
 	}
@@ -104,7 +120,7 @@ func (s *slsaParser) getSubject() error {
 	// append artifact node for the subjects
 	for _, sub := range s.smt.Subject {
 		s.identifierStrings.UnclassifiedStrings = append(s.identifierStrings.UnclassifiedStrings, sub.Name)
-		se, err := getSlsaEntity(sub.Name, sub.Digest)
+		se, err := getSlsaEntity(sub.Name, sub.Uri, sub.Digest)
 		if err != nil {
 			return err
 		}
@@ -149,7 +165,7 @@ func (s *slsaParser) getMaterials1(rds []*attestationv1.ResourceDescriptor) erro
 		}
 		// Digest(s) and URI are set, create IsOccurrence between them.
 		s.identifierStrings.UnclassifiedStrings = append(s.identifierStrings.UnclassifiedStrings, rd.Uri)
-		se, err := getSlsaEntity(rd.Uri, rd.Digest)
+		se, err := getSlsaEntity(rd.Name, rd.Uri, rd.Digest)
 		if err != nil {
 			return err
 		}
@@ -162,7 +178,7 @@ func (s *slsaParser) getMaterials0(materials []scommon.ProvenanceMaterial) error
 	// append dependency nodes for the materials
 	for _, mat := range materials {
 		s.identifierStrings.UnclassifiedStrings = append(s.identifierStrings.UnclassifiedStrings, mat.URI)
-		se, err := getSlsaEntity(mat.URI, mat.Digest)
+		se, err := getSlsaEntity("", mat.URI, mat.Digest)
 		if err != nil {
 			return err
 		}
@@ -182,7 +198,7 @@ func getArtifacts(digests scommon.DigestSet) []*model.ArtifactInputSpec {
 	return artifacts
 }
 
-func getSlsaEntity(name string, digests scommon.DigestSet) (*slsaEntity, error) {
+func getSlsaEntity(name, uri string, digests scommon.DigestSet) (*slsaEntity, error) {
 	artifacts := getArtifacts(digests)
 	slsa := &slsaEntity{
 		artifacts: artifacts,
@@ -191,7 +207,11 @@ func getSlsaEntity(name string, digests scommon.DigestSet) (*slsaEntity, error) 
 		},
 	}
 
-	if pkg, err := helpers.PurlToPkg(name); err == nil {
+	if name == "" {
+		name = uri
+	}
+
+	if pkg, err := helpers.PurlToPkg(uri); err == nil {
 		slsa.pkg = pkg
 		return slsa, nil
 	}

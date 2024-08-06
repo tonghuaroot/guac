@@ -222,10 +222,10 @@ func initializeNATsandCertifier(ctx context.Context, blobAddr, pubsubAddr string
 	// Collect
 	errHandler := func(err error) bool {
 		if err == nil {
-			logger.Info("osv certifier ended gracefully")
+			logger.Info("certifier ended gracefully")
 			return true
 		}
-		logger.Errorf("osv certifier ended with error: %v", err)
+		logger.Errorf("certifier ended with error: %v", err)
 		// Continue to emit any documents still in the docChan
 		return true
 	}
